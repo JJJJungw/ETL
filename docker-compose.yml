@@ -23,20 +23,21 @@ services:
     build: ./ai
     container_name: news_etl_ai
     restart: unless-stopped
-    env_file: .env
+    env_file: .env # .env의 모델명 변수를 자동으로 가져옵니다.
     environment:
       TZ: Asia/Seoul
       TRANSFORMERS_CACHE: /models
       HF_HOME: /models
-    # 과제 요건: 외부 포트 노출 없음 (expose는 내부 통신용으로 문서화 역할)
+      # 코드에서 os.getenv로 읽을 수 있게 매핑합니다.
+      SUMMARIZATION_MODEL: ${SUMMARIZATION_MODEL}
+      SENTIMENT_MODEL: ${SENTIMENT_MODEL}
     expose:
       - "8001"
     volumes:
       - model_cache:/models
     healthcheck:
-      # FastAPI의 /health 엔드포인트를 활용해 모델 로드 완료를 감지
       test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
-      interval: 30s # 모델 로드 시간을 고려해 넉넉하게 설정
+      interval: 30s
       timeout: 10s
       retries: 3
     depends_on:
@@ -50,14 +51,13 @@ services:
     env_file: .env
     environment:
       TZ: Asia/Seoul
-      # SQLAlchemy 연결을 위해 URL 형태로 제공하면 편리합니다
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      AI_SERVICE_URL: http://ai:8001/analyze
+      AI_SERVICE_URL: ${AI_SERVICE_URL}
     depends_on:
       db:
         condition: service_healthy
       ai:
-        condition: service_healthy # AI 모델이 완전히 로드된 후 시작
+        condition: service_healthy
 
   api:
     build: ./api
