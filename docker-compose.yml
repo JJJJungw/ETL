@@ -3,8 +3,7 @@ services:
     image: postgres:16
     container_name: news_etl_db
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -20,12 +19,65 @@ services:
       timeout: 5s
       retries: 5
 
+  ai:
+    build: ./ai
+    container_name: news_etl_ai
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Asia/Seoul
+      TRANSFORMERS_CACHE: /models
+      HF_HOME: /models
+    # 과제 요건: 외부 포트 노출 없음 (expose는 내부 통신용으로 문서화 역할)
+    expose:
+      - "8001"
+    volumes:
+      - model_cache:/models
+    healthcheck:
+      # FastAPI의 /health 엔드포인트를 활용해 모델 로드 완료를 감지
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s # 모델 로드 시간을 고려해 넉넉하게 설정
+      timeout: 10s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+
+  collector:
+    build: ./collector
+    container_name: news_etl_collector
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Asia/Seoul
+      # SQLAlchemy 연결을 위해 URL 형태로 제공하면 편리합니다
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      AI_SERVICE_URL: http://ai:8001/analyze
+    depends_on:
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_healthy # AI 모델이 완전히 로드된 후 시작
+
+  api:
+    build: ./api
+    container_name: news_etl_api
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    environment:
+      TZ: Asia/Seoul
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: news_etl_pgadmin
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: .env
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
@@ -34,70 +86,6 @@ services:
       - "${PGADMIN_LISTEN_PORT}:${PGADMIN_LISTEN_PORT}"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      db:
-        condition: service_healthy
-
-  ai:
-    build:
-      context: ./ai
-      dockerfile: Dockerfile
-    container_name: news_etl_ai
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      TZ: Asia/Seoul
-      MODEL_CACHE_DIR: /models
-      TRANSFORMERS_CACHE: /models
-      HF_HOME: /models
-    expose:
-      - "8001"
-    volumes:
-      - model_cache:/models
-    depends_on:
-      db:
-        condition: service_healthy
-
-  collector:
-    build:
-      context: ./collector
-      dockerfile: Dockerfile
-    container_name: news_etl_collector
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      TZ: Asia/Seoul
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      AI_SERVICE_URL: http://ai:8001
-    depends_on:
-      db:
-        condition: service_healthy
-      ai:
-        condition: service_started
-
-  api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: news_etl_api
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      TZ: Asia/Seoul
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
