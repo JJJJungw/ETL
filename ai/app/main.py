@@ -66,12 +66,14 @@ async def analyze(request: AnalyzeRequest):
             summary_text = content
         else:
             summary_res = MODELS["summarizer"](
-                content[:512], 
-                max_length=50,
-                min_length=10,
+                content[:1024], 
+                max_length=80,
+                min_length=20,
                 do_sample=False, 
                 no_repeat_ngram_size=3,
-                repetition_penalty=2.5 # 페널티를 조금 더 강화(2.0 -> 2.5)
+                repetition_penalty=3.5, # 페널티를 조금 더 강화(2.0 -> 2.5)
+                early_stopping=True,
+                num_beams=4
             )
             summary_text = summary_res[0]['summary_text']
         

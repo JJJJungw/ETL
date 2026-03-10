@@ -19,7 +19,7 @@ async def load_to_db(articles_data: list[dict]):
                     url=data['url'],
                     title=data['title'],
                     source=data['source'],
-                    published_at=None,  # 날짜 파싱 로직 추가 전까지는 None 혹은 현재시간
+                    published_at=data.get('published_at'),  # 날짜 파싱 로직 추가 전까지는 None 혹은 현재시간
                     raw_content=data['raw_content'],
                     summary=data.get('summary'),
                     sentiment=data.get('sentiment')
@@ -31,8 +31,8 @@ async def load_to_db(articles_data: list[dict]):
                     set_={
                         "summary": stmt.excluded.summary,
                         "sentiment": stmt.excluded.sentiment,
+                        "published_at": stmt.excluded.published_at
                     }
                 )
                 await session.execute(upsert_stmt)
-            # 블록을 나가면서 자동으로 commit 됩니다.
     print(f"[Load] {len(articles_data)}건의 데이터 처리가 완료되었습니다.")
