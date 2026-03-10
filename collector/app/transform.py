@@ -28,7 +28,10 @@ async def transform_and_analyze(news_list):
     # 2. httpx 비동기 클라이언트로 AI 서버 호출
     async with httpx.AsyncClient(timeout=60.0) as client:
         for _, row in df.iterrows():
-            summary, sentiment = None, None
+            # [수정] 기본값을 None 대신 설정해줍니다.
+            summary = "분석 대기 중" 
+            sentiment = "unknown"
+            
             try:
                 # AI 서버(8001)에 분석 요청
                 response = await client.post(
@@ -38,14 +41,23 @@ async def transform_and_analyze(news_list):
                         "content": row['raw_content'][:1000] # 모델 입력 제한 고려
                     }
                 )
+                
                 if response.status_code == 200:
                     data = response.json()
-                    summary = data.get("summary")
-                    sentiment = data.get("sentiment")
+                    # [수정] AI 응답이 있어도 내용이 비어있을 경우를 대비합니다.
+                    summary = data.get("summary") or "분석 결과가 비어있습니다."
+                    sentiment = data.get("sentiment") or "unknown"
                 else:
+                    # [수정] 403, 500 등 서버 응답 에러 시 메시지
                     print(f" AI 서버 응답 이상: {response.status_code}")
+                    summary = "민감한 내용 포함으로 AI 분석이 제한되었습니다."
+                    sentiment = "unknown"
+
             except Exception as e:
+                # [수정] 네트워크 에러나 타임아웃 등 예외 발생 시 메시지
                 print(f" AI 분석 호출 실패 ({row['url']}): {e}")
+                summary = "AI 서비스 호출 실패로 분석을 완료하지 못했습니다."
+                sentiment = "error"
             
             # 결과 합치기
             article = row.to_dict()
