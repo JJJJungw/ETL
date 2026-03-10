@@ -34,11 +34,11 @@ async def extract_all_sections(display_per_section: int = 5):
             rss_url = base_url.format(query=encoded_query)
             
             try:
-                print(f"   📥 {section_name}({keyword}) 데이터 읽는 중...")
+                print(f"   {section_name}({keyword}) 데이터 읽는 중...")
                 response = await client.get(rss_url)
                 
                 if response.status_code != 200:
-                    print(f"   ⚠️ {section_name} 응답 실패: {response.status_code}")
+                    print(f"   {section_name} 응답 실패: {response.status_code}")
                     continue
 
                 # 구글 뉴스는 표준 XML 규격을 매우 잘 지킵니다.
@@ -46,7 +46,7 @@ async def extract_all_sections(display_per_section: int = 5):
                 items = soup.find_all("item")
 
                 if not items:
-                    print(f"   ❓ {section_name} 데이터가 없습니다.")
+                    print(f"   {section_name} 데이터가 없습니다.")
                     continue
 
                 for item in items[:display_per_section]:
@@ -64,10 +64,10 @@ async def extract_all_sections(display_per_section: int = 5):
                         "source": f"구글뉴스-{section_name}"
                     })
                 
-                print(f"   ✅ {section_name} 수집 완료 ({len(items[:display_per_section])}건)")
+                print(f"   {section_name} 수집 완료 ({len(items[:display_per_section])}건)")
 
             except Exception as e:
-                print(f"   ❌ {section_name} 에러: {e}")
+                print(f"   {section_name} 에러: {e}")
                 continue
                 
     print(f"✨ [RSS Extract] 총 {len(all_news)}건 수집 완료")

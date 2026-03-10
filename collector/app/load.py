@@ -35,4 +35,4 @@ async def load_to_db(articles_data: list[dict]):
                 )
                 await session.execute(upsert_stmt)
             # 블록을 나가면서 자동으로 commit 됩니다.
-    print(f"💾 [Load] {len(articles_data)}건의 데이터 처리가 완료되었습니다.")
+    print(f"[Load] {len(articles_data)}건의 데이터 처리가 완료되었습니다.")

@@ -4,8 +4,7 @@ import os
 import asyncio
 from bs4 import BeautifulSoup
 
-# 도커 네트워크 안에서는 서비스 이름인 'ai'로 통신합니다.
-AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://ai:8001/analyze")
+AI_SERVICE_URL = os.getenv("AI_SERVICE_URL")
 
 def clean_html(text):
     """BeautifulSoup을 사용해 HTML 태그를 제거합니다."""
