@@ -5,7 +5,7 @@ from transformers import pipeline
 
 app = FastAPI()
 
-# 1. 환경변수 로드 (.env 및 docker-compose에서 주입된 값)
+# 1. 환경변수 로드
 CACHE_DIR = os.getenv("TRANSFORMERS_CACHE", "/models")
 SUM_MODEL = os.getenv("SUMMARIZATION_MODEL")
 SEN_MODEL = os.getenv("SENTIMENT_MODEL")
@@ -14,39 +14,33 @@ MODELS = {}
 
 @app.on_event("startup")
 async def load_models():
-    # 환경변수 설정 누락 여부 확인
     if not SUM_MODEL or not SEN_MODEL:
-        print(" 에러: 환경변수(SUMMARIZATION_MODEL, SENTIMENT_MODEL)가 설정되지 않았습니다.")
+        print(" 에러: 환경변수 설정 누락")
         return
 
-    print(f"📦 모델 로딩 시작 (Cache: {CACHE_DIR})...")
-    print(f" - 요약 모델: {SUM_MODEL}")
-    print(f" - 감성 모델: {SEN_MODEL}")
+    print(f"모델 로딩 시작: {SEN_MODEL}")
     
     try:
-        # 2. 요약 모델 로드
+        # 요약 모델 로드
         MODELS["summarizer"] = pipeline(
             "summarization", 
             model=SUM_MODEL,
             model_kwargs={"cache_dir": CACHE_DIR}
         )
-        # 3. 감성 분석 모델 로드
+        # 감성 분석 모델 로드 (lxyuan 모델 최적화)
         MODELS["sentiment"] = pipeline(
             "text-classification", 
             model=SEN_MODEL,
             model_kwargs={"cache_dir": CACHE_DIR}
         )
-        print(" 모든 AI 모델이 성공적으로 로드되었습니다!")
+        print(" 모든 AI 모델 로드 완료!")
     except Exception as e:
         print(f" 모델 로드 실패: {str(e)}")
 
 @app.get("/health")
 def health():
     is_ready = "summarizer" in MODELS and "sentiment" in MODELS
-    return {
-        "status": "ok" if is_ready else "loading", 
-        "model_loaded": is_ready
-    }
+    return {"status": "ok" if is_ready else "loading", "model_loaded": is_ready}
 
 class AnalyzeRequest(BaseModel):
     title: str
@@ -58,33 +52,43 @@ async def analyze(request: AnalyzeRequest):
         return {"summary": None, "sentiment": None, "error": "Models not ready"}
 
     try:
-        content = request.content.strip()
+        # 전처리: 불필요한 공백 제거
+        clean_content = " ".join(request.content.split())
         
-        # [방어 로직] 입력이 너무 짧으면 요약할 필요가 없으므로 그냥 원문을 씁니다.
-        # 보통 50자 미만은 요약하면 오히려 망가집니다.
-        if len(content) < 50:
-            summary_text = content
+        # [1] 요약 로직 (2~3문장 타겟)
+        if len(clean_content) < 60:
+            summary_text = clean_content
         else:
             summary_res = MODELS["summarizer"](
-                content[:1024], 
-                max_length=80,
-                min_length=20,
+                clean_content[:1024], 
+                max_length=80,      # 2~3문장이 나오려면 60~80 정도가 적당합니다
+                min_length=30,      # 너무 짧으면 문장이 끊깁니다
                 do_sample=False, 
-                no_repeat_ngram_size=3,
-                repetition_penalty=3.5, # 페널티를 조금 더 강화(2.0 -> 2.5)
-                early_stopping=True,
+                no_repeat_ngram_size=3, # 3개 단어 반복 시 차단 (2는 너무 빡빡할 수 있음)
+                repetition_penalty=2.5,  # 5.0은 문장이 망가질 수 있어 2.5로 조정
+                length_penalty=1.0, 
                 num_beams=4
             )
             summary_text = summary_res[0]['summary_text']
-        
-        # 감성 분석 (이건 짧아도 잘 작동합니다)
-        sentiment_input = f"{request.title} {content}"[:512]
+
+        # [2] 감성 분석 로직 (lxyuan 모델 전용)
+        # 제목과 본문을 합쳐 문맥 파악 극대화
+        sentiment_input = f"{request.title} {clean_content}"[:512]
         sentiment_res = MODELS["sentiment"](sentiment_input)[0]
         
+        # 모델이 'POSITIVE', 'NEGATIVE', 'NEUTRAL'을 주므로 소문자로 통일
+        sentiment_label = sentiment_res['label'].lower()
+        
+        # [검증] 혹리 모델이 의도치 않은 레이블을 줄 경우를 대비한 방어 로직
+        valid_labels = ["positive", "negative", "neutral"]
+        if sentiment_label not in valid_labels:
+            sentiment_label = "neutral"
+
         return {
-            "summary": summary_text,
-            "sentiment": sentiment_res['label'].lower()
+            "summary": summary_text.strip(),
+            "sentiment": sentiment_label
         }
+        
     except Exception as e:
-        print(f" Analysis error: {str(e)}")
-        return {"summary": None, "sentiment": None, "error": "analysis_failed"}
+        print(f" 분석 에러: {str(e)}")
+        return {"summary": None, "sentiment": "neutral", "error": "analysis_failed"}
