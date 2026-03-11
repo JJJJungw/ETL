@@ -7,7 +7,7 @@
 프로젝트는 4개의 주요 컨테이너로 구성되며, Docker 네트워크 내에서 유기적으로 통신합니다.
 
 
-<img width="748" height="341" alt="Image" src="https://github.com/user-attachments/assets/1ad87848-66c5-4110-86fb-78ad64c13bc2" />
+<img width="828" height="341" alt="Image" src="https://github.com/user-attachments/assets/f2a60628-3280-409e-8d77-3dfa779f969e" />
 
 
 1. **Collector (Python)**: 1시간 주기로 RSS 뉴스 수집 및 AI 서비스에 분석 요청
