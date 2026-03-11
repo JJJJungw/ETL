@@ -7,6 +7,7 @@
 프로젝트는 4개의 주요 컨테이너로 구성되며, Docker 네트워크 내에서 유기적으로 통신합니다.
 
 
+<img width="1250" height="641" alt="Image" src="https://github.com/user-attachments/assets/03f9683d-4801-4c8c-8649-973ce3047c1e" />
 
 1. **Collector (Python)**: 1시간 주기로 RSS 뉴스 수집 및 AI 서비스에 분석 요청
 2. **AI Service (FastAPI)**: NLP 모델(KoBART, DistilBERT)을 활용한 추론 수행
