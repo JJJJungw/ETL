@@ -11,7 +11,7 @@
 
 
 1. **Collector (Python)**: 1시간 주기로 RSS 뉴스 수집 및 AI 서비스에 분석 요청
-2. **AI Service (FastAPI)**: NLP 모델(KoBART, DistilBERT)을 활용한 추론 수행
+2. **AI Service (FastAPI)**: 요약,감정분석 모델을 통한 추론
 3. **Database (PostgreSQL)**: 분석된 뉴스 데이터의 영속적 저장 (Upsert 적용)
 4. **API Service (FastAPI)**: 사용자에게 최종 분석 데이터를 JSON 형태로 제공
 
@@ -44,16 +44,16 @@ curl http://localhost:8000/health
 # 수집된 기사 목록 확인
 curl http://localhost:8000/articles
 ```
-## 🤖 3. AI 모델 선정 및 트러블슈팅 (Review로 옮겨야함 추후에 옮길 예정)
+##  3. AI 모델 선정 및 트러블슈팅 (Review로 옮겨야함 추후에 옮길 예정)
 
 ### 요약 모델: `digit82/kobart-summarization`
-* **기술적 부채 해결**: 초기 검토 모델(`ainize/kobart-news`)이 최신 라이브러리 규격 미달로 `RecursionError`를 발생시키는 **기술적 부채** 상태임을 확인했습니다.
-* **엔지니어링 의사결정**: 구형 모델 수정 대신 표준 규격을 완벽히 준수하는 최신 모델로 교체하여 **시스템 안정성 및 유지보수성**을 확보했습니다.
-* **성능**: 한국어 뉴스 특화 모델로, CPU 환경에서도 빠른 응답 속도와 명확한 요약 성능을 보여줍니다.
+* **기술적 부채 해결**: 초기 검토 모델(`ainize/kobart-news`)이 최신 라이브러리 규격 미달로 `RecursionError`를 발생시키는 **기술적 부채** 를 확인했습니다.
+* **엔지니어링 의사결정**: 구형 모델 수정 대신 표준 규격을 준수하는 최신 모델로 교체
+* **성능**: 한국어 뉴스 특화 모델로, CPU 환경에서도 빠른 응답 속도와 요약 성능을 보여줍니다.
 
 ### 감성 모델: `lxyuan/distilbert-base-multilingual-cased-sentiments-student`
-* **요구사항 최적화**: 별도 로직 없이 모델이 직접 **3개 클래스(Positive, Negative, Neutral)**를 출력하여 과제 요건을 100% 충족합니다.
-* **효율성**: 다국어 기반으로 뉴스 전반에 대한 범용성이 높으며, `DistilBERT` 아키텍처를 통한 추론 최적화를 달성했습니다.
+* **요구사항 최적화**: 별도 로직 없이 모델이 직접 **3개 클래스(Positive, Negative, Neutral)**를 출력합니다.
+* **효율성**: 다국어 기반으로 뉴스 전반에 대한 범용성이 높으며, `DistilBERT` 아키텍처를 통한 추론 수행.
 
 ## 🔍 3. 기술적 설계 문답 (Q&A)
 
