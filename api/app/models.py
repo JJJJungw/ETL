@@ -24,9 +24,10 @@ class Article(Base):
     # AI 분석 결과 (실패 시 NULL 허용)
     summary: Mapped[str | None] = mapped_column(Text)
     sentiment: Mapped[str | None] = mapped_column(String(20))
-    
+    category: Mapped[str | None] = mapped_column(String(50))
     # 수집 시각: DB 서버 타임스탬프 기본값 사용
     collected_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     def __repr__(self) -> str:
-        return f"<Article(title={self.title[:15]}..., sentiment={self.sentiment})>"
+        # 출력 시 카테고리도 확인 가능하도록 수정
+        return f"<Article(title={self.title[:15]}..., category={self.category}, sentiment={self.sentiment})>"

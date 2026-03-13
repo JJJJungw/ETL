@@ -1,94 +1,357 @@
 import os
+import ssl
+import torch
+import requests
+import urllib3
+import subprocess
+import tempfile
+from io import BytesIO
+from PIL import Image
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import BaseModel
-from transformers import pipeline
+from transformers import pipeline, BlipProcessor, BlipForConditionalGeneration
+from sentence_transformers import SentenceTransformer, util
+from requests.adapters import HTTPAdapter
 
-app = FastAPI()
 
-# 1. 환경변수 로드
-CACHE_DIR = os.getenv("TRANSFORMERS_CACHE", "/models")
-SUM_MODEL = os.getenv("SUMMARIZATION_MODEL")
-SEN_MODEL = os.getenv("SENTIMENT_MODEL")
+# -------------------------------------------------
+# SSL workaround
+# -------------------------------------------------
+
+class TLSAdapter(HTTPAdapter):
+
+    def init_poolmanager(self, *args, **kwargs):
+
+        ctx = ssl.create_default_context()
+        ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        kwargs["ssl_context"] = ctx
+
+        return super().init_poolmanager(*args, **kwargs)
+
+
+session = requests.Session()
+session.mount("https://", TLSAdapter())
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+# -------------------------------------------------
+# 전역 설정
+# -------------------------------------------------
 
 MODELS = {}
 
-@app.on_event("startup")
-async def load_models():
-    if not SUM_MODEL or not SEN_MODEL:
-        print(" 에러: 환경변수 설정 누락")
-        return
+CANDIDATE_LABELS = [
+    "정치",
+    "경제",
+    "사회",
+    "지역",
+    "문화",
+    "세계",
+    "IT/과학"
+]
 
-    print(f"모델 로딩 시작: {SEN_MODEL}")
-    
+
+# -------------------------------------------------
+# 이미지 다운로드 함수
+# -------------------------------------------------
+
+def download_image(url: str):
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
     try:
-        # 요약 모델 로드
-        MODELS["summarizer"] = pipeline(
-            "summarization", 
-            model=SUM_MODEL,
-            model_kwargs={"cache_dir": CACHE_DIR}
-        )
-        # 감성 분석 모델 로드 (lxyuan 모델 최적화)
-        MODELS["sentiment"] = pipeline(
-            "text-classification", 
-            model=SEN_MODEL,
-            model_kwargs={"cache_dir": CACHE_DIR}
-        )
-        print(" 모든 AI 모델 로드 완료!")
-    except Exception as e:
-        print(f" 모델 로드 실패: {str(e)}")
+        response = session.get(url, timeout=10, headers=headers)
+        response.raise_for_status()
 
-@app.get("/health")
-def health():
-    is_ready = "summarizer" in MODELS and "sentiment" in MODELS
-    return {"status": "ok" if is_ready else "loading", "model_loaded": is_ready}
+        return Image.open(BytesIO(response.content)).convert("RGB")
+
+    except Exception:
+
+        print("requests 실패 → curl fallback")
+
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            path = tmp.name
+
+        cmd = [
+            "curl",
+            "-L",
+            "-k",
+            "-A",
+            "Mozilla/5.0",
+            "-o",
+            path,
+            url
+        ]
+
+        subprocess.run(cmd, check=True)
+
+        return Image.open(path).convert("RGB")
+
+
+# -------------------------------------------------
+# FastAPI Lifespan
+# -------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+
+    print("\n" + "=" * 50)
+    print("[Startup] AI 모델 로딩 시작")
+
+    CACHE_DIR = os.getenv("TRANSFORMERS_CACHE", "/models")
+
+    SUM_MODEL = os.getenv(
+        "SUMMARIZATION_MODEL",
+        "digit82/kobart-summarization"
+    )
+
+    SEN_MODEL = os.getenv(
+        "SENTIMENT_MODEL",
+        "lxyuan/distilbert-base-multilingual-cased-sentiments-student"
+    )
+
+    CAT_MODEL = os.getenv(
+        "CATEGORY_MODEL",
+        "jhgan/ko-sroberta-multitask"
+    )
+
+    IMG_MODEL = os.getenv(
+        "IMAGE_CAPTION_MODEL",
+        "Salesforce/blip-image-captioning-base"
+    )
+
+    device = 0 if torch.cuda.is_available() else -1
+
+    try:
+
+        MODELS["summarizer"] = pipeline(
+            "summarization",
+            model=SUM_MODEL,
+            device=device,
+            model_kwargs={"cache_dir": CACHE_DIR}
+        )
+
+        MODELS["sentiment"] = pipeline(
+            "text-classification",
+            model=SEN_MODEL,
+            device=device,
+            model_kwargs={"cache_dir": CACHE_DIR}
+        )
+
+        MODELS["classifier"] = SentenceTransformer(
+            CAT_MODEL,
+            cache_folder=CACHE_DIR
+        )
+
+        MODELS["label_embeddings"] = MODELS["classifier"].encode(
+            CANDIDATE_LABELS,
+            convert_to_tensor=True
+        )
+
+        print(f"[Image Model] loading {IMG_MODEL}")
+
+        MODELS["image_processor"] = BlipProcessor.from_pretrained(
+            IMG_MODEL,
+            cache_dir=CACHE_DIR
+        )
+
+        MODELS["image_model"] = BlipForConditionalGeneration.from_pretrained(
+            IMG_MODEL,
+            cache_dir=CACHE_DIR
+        )
+
+        if torch.cuda.is_available():
+            MODELS["image_model"].to("cuda")
+
+        print("[Success] 모델 로딩 완료")
+
+    except Exception as e:
+        print("모델 로딩 실패:", e)
+        raise e
+
+    print("=" * 50 + "\n")
+
+    yield
+
+    print("[Shutdown] 모델 메모리 해제")
+    MODELS.clear()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+# -------------------------------------------------
+# Request Models
+# -------------------------------------------------
 
 class AnalyzeRequest(BaseModel):
     title: str
     content: str
 
+
+class ImageAnalyzeRequest(BaseModel):
+    image_url: str
+
+
+# -------------------------------------------------
+# health check
+# -------------------------------------------------
+
+@app.get("/health")
+def health():
+
+    required = [
+        "summarizer",
+        "sentiment",
+        "classifier",
+        "image_model"
+    ]
+
+    ready = all(k in MODELS for k in required)
+
+    return {
+        "status": "ok" if ready else "loading",
+        "model_loaded": ready
+    }
+
+
+# -------------------------------------------------
+# text analysis
+# -------------------------------------------------
+
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest):
+
     if not MODELS:
-        return {"summary": None, "sentiment": None, "error": "Models not ready"}
+        return {
+            "summary": None,
+            "sentiment": "neutral",
+            "category": "기타"
+        }
 
     try:
-        # 전처리: 불필요한 공백 제거
+
         clean_content = " ".join(request.content.split())
-        
-        # [1] 요약 로직 (2~3문장 타겟)
+
         if len(clean_content) < 60:
             summary_text = clean_content
         else:
-            summary_res = MODELS["summarizer"](
-                clean_content[:1024], 
-                max_length=80,      # 2~3문장이 나오려면 60~80 정도가 적당합니다
-                min_length=30,      # 너무 짧으면 문장이 끊깁니다
-                do_sample=False, 
-                no_repeat_ngram_size=3, # 3개 단어 반복 시 차단 (2는 너무 빡빡할 수 있음)
-                repetition_penalty=2.5,  # 5.0은 문장이 망가질 수 있어 2.5로 조정
-                length_penalty=1.0, 
-                num_beams=4
-            )
-            summary_text = summary_res[0]['summary_text']
 
-        # [2] 감성 분석 로직 (lxyuan 모델 전용)
-        # 제목과 본문을 합쳐 문맥 파악 극대화
-        sentiment_input = f"{request.title} {clean_content}"[:512]
+            summary_res = MODELS["summarizer"](
+                clean_content[:1024],
+                max_new_tokens=80,
+                num_beams=4,
+                repetition_penalty=2.5,
+                do_sample=False
+            )
+
+            summary_text = summary_res[0]["summary_text"]
+
+        sentiment_input = f"{request.title} {clean_content[:200]}"[:512]
+
         sentiment_res = MODELS["sentiment"](sentiment_input)[0]
-        
-        # 모델이 'POSITIVE', 'NEGATIVE', 'NEUTRAL'을 주므로 소문자로 통일
-        sentiment_label = sentiment_res['label'].lower()
-        
-        # [검증] 혹리 모델이 의도치 않은 레이블을 줄 경우를 대비한 방어 로직
-        valid_labels = ["positive", "negative", "neutral"]
-        if sentiment_label not in valid_labels:
+
+        raw_label = sentiment_res["label"].lower()
+        raw_score = sentiment_res["score"]
+
+        if "neg" in raw_label and raw_score > 0.4:
+            sentiment_label = "negative"
+
+        elif "pos" in raw_label and raw_score > 0.7:
+            sentiment_label = "positive"
+
+        else:
             sentiment_label = "neutral"
+
+        embedding = MODELS["classifier"].encode(
+            request.title,
+            convert_to_tensor=True
+        )
+
+        scores = util.cos_sim(
+            embedding,
+            MODELS["label_embeddings"]
+        )[0]
+
+        category = CANDIDATE_LABELS[
+            torch.argmax(scores).item()
+        ]
 
         return {
             "summary": summary_text.strip(),
-            "sentiment": sentiment_label
+            "sentiment": sentiment_label,
+            "category": category,
+            "debug": {
+                "raw_label": raw_label,
+                "score": round(raw_score, 4)
+            }
         }
-        
+
     except Exception as e:
-        print(f" 분석 에러: {str(e)}")
-        return {"summary": None, "sentiment": "neutral", "error": "analysis_failed"}
+
+        print("Text analysis error:", e)
+
+        return {
+            "summary": None,
+            "sentiment": "neutral",
+            "category": "기타",
+            "error": str(e)
+        }
+
+
+# -------------------------------------------------
+# image caption
+# -------------------------------------------------
+
+@app.post("/analyze/image")
+async def analyze_image(request: ImageAnalyzeRequest):
+
+    if "image_model" not in MODELS:
+        return {
+            "caption": None,
+            "error": "Image model not loaded"
+        }
+
+    try:
+
+        raw_image = download_image(request.image_url)
+
+        inputs = MODELS["image_processor"](
+            raw_image,
+            return_tensors="pt"
+        )
+
+        if torch.cuda.is_available():
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}
+
+        out = MODELS["image_model"].generate(
+            **inputs,
+            max_new_tokens=40
+        )
+
+        caption = MODELS["image_processor"].decode(
+            out[0],
+            skip_special_tokens=True
+        )
+
+        return {
+            "caption": caption.strip(),
+            "status": "success"
+        }
+
+    except Exception as e:
+
+        print("Image analysis error:", e)
+
+        return {
+            "caption": None,
+            "error": str(e)
+        }

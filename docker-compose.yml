@@ -38,10 +38,11 @@ services:
     volumes:
       - model_cache:/models
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"] # 포트 번호 8001 확인!
+      interval: 20s # 체크 간격
+      timeout: 10s # 응답 대기 시간
+      retries: 10 # 모델이 무거우니 재시도 횟수를 넉넉히 (10번이면 약 3분 대기)
+      start_period: 60s # 컨테이너 시작 후 모델 로딩을 위한 초기 대기 시간
     depends_on:
       db:
         condition: service_healthy

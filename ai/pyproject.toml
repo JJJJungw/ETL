@@ -7,6 +7,9 @@ requires-python = ">=3.11"
 dependencies = [
     "accelerate>=1.13.0",
     "fastapi>=0.135.1",
+    "pillow>=12.1.1",
+    "requests>=2.32.5",
+    "sentence-transformers>=5.2.3",
     "sentencepiece>=0.2.1",
     "torch>=2.10.0",
     "transformers>=4.40,<5.0",

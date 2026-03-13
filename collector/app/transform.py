@@ -2,69 +2,169 @@ import pandas as pd
 import httpx
 import os
 import asyncio
+import time
 from bs4 import BeautifulSoup
 
-AI_SERVICE_URL = os.getenv("AI_SERVICE_URL")
+AI_TEXT_SERVICE_URL = os.getenv("AI_SERVICE_URL")
+AI_IMAGE_SERVICE_URL = os.getenv("AI_IMAGE_SERVICE_URL")
+
 
 def clean_html(text):
-    """BeautifulSoup을 사용해 HTML 태그를 제거합니다."""
     if not text:
         return ""
     soup = BeautifulSoup(text, "html.parser")
     return soup.get_text(separator=" ", strip=True)
 
+
+# -----------------------------
+# 단일 기사 분석
+# -----------------------------
+async def analyze_one(client, article):
+
+    try:
+
+        # 텍스트 분석
+        res = await client.post(
+            AI_TEXT_SERVICE_URL,
+            json={
+                "title": article["title"],
+                "content": article["raw_content"][:1000],
+            },
+            timeout=180.0,
+        )
+
+        data = res.json()
+
+        article.update(
+            {
+                "summary": data.get("summary"),
+                "sentiment": data.get("sentiment"),
+                "category": data.get("category") or "기타",
+            }
+        )
+
+        # 이미지 분석
+        image_caption = None
+
+        if article.get("image_url"):
+
+            try:
+                img_res = await client.post(
+                    AI_IMAGE_SERVICE_URL,
+                    json={"image_url": article["image_url"]},
+                    timeout=180.0,
+                )
+
+                img_data = img_res.json()
+                image_caption = img_data.get("caption")
+
+            except Exception:
+                image_caption = None
+
+        article["image_caption"] = image_caption
+
+    except Exception:
+
+        article.update(
+            {
+                "summary": None,
+                "sentiment": None,
+                "category": "오류",
+                "image_caption": None,
+            }
+        )
+
+    return article
+
+
+# -----------------------------
+# 순차 처리
+# -----------------------------
+async def analyze_sequential(client, articles):
+
+    results = []
+
+    for article in articles:
+        result = await analyze_one(client, article)
+        results.append(result)
+
+    return results
+
+
+# -----------------------------
+# 병렬 처리
+# -----------------------------
+async def analyze_concurrent(client, articles):
+
+    tasks = [analyze_one(client, article) for article in articles]
+
+    return await asyncio.gather(*tasks)
+
+
+# -----------------------------
+# transform + analyze
+# -----------------------------
 async def transform_and_analyze(news_list):
-    """뉴스 리스트를 받아 정제 후 AI 분석 결과를 추가합니다."""
+
     if not news_list:
         return []
 
-    # 1. pandas로 중복 URL 제거 및 본문 정제
-    df = pd.DataFrame(news_list)
-    df = df.drop_duplicates(subset=['url'])
-    df['raw_content'] = df['raw_content'].apply(clean_html)
-    
-    transformed_data = []
-    
-    # 2. httpx 비동기 클라이언트로 AI 서버 호출
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        for _, row in df.iterrows():
-            # [수정] 기본값을 None 대신 설정해줍니다.
-            summary = "분석 대기 중" 
-            sentiment = "unknown"
-            
-            try:
-                # AI 서버(8001)에 분석 요청
-                response = await client.post(
-                    AI_SERVICE_URL,
-                    json={
-                        "title": row['title'],
-                        "content": row['raw_content'][:1000] # 모델 입력 제한 고려
-                    }
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    # [수정] AI 응답이 있어도 내용이 비어있을 경우를 대비합니다.
-                    summary = data.get("summary") or "분석 결과가 비어있습니다."
-                    sentiment = data.get("sentiment") or "unknown"
-                else:
-                    # [수정] 403, 500 등 서버 응답 에러 시 메시지
-                    print(f" AI 서버 응답 이상: {response.status_code}")
-                    summary = "민감한 내용 포함으로 AI 분석이 제한되었습니다."
-                    sentiment = "unknown"
+    # 전처리
+    df = (
+        pd.DataFrame(news_list)
+        .drop_duplicates(subset=["url"])
+        .dropna(subset=["raw_content"])
+    )
 
-            except Exception as e:
-                # [수정] 네트워크 에러나 타임아웃 등 예외 발생 시 메시지
-                print(f" AI 분석 호출 실패 ({row['url']}): {e}")
-                summary = "AI 서비스 호출 실패로 분석을 완료하지 못했습니다."
-                sentiment = "error"
-            
-            # 결과 합치기
-            article = row.to_dict()
-            article.update({
-                "summary": summary,
-                "sentiment": sentiment
-            })
-            transformed_data.append(article)
-            
-    return transformed_data
+    df["raw_content"] = df["raw_content"].apply(clean_html)
+
+    df = df[df["raw_content"].str.len() > 20]
+
+    # 30개 추출
+    articles = [row.to_dict() for _, row in df.head(30).iterrows()]
+
+    seq_articles = articles[:15]
+    con_articles = articles[15:30]
+
+    async with httpx.AsyncClient() as client:
+
+        print(f"\n[Transform] 성능 비교 테스트 시작 (총 {len(articles)}건)")
+        print(" 1~15 : 순차 처리")
+        print("16~30 : 병렬 처리")
+
+        # -----------------------------
+        # 순차 처리
+        # -----------------------------
+        start_seq = time.perf_counter()
+
+        seq_results = await analyze_sequential(client, seq_articles)
+
+        end_seq = time.perf_counter()
+
+        seq_time = end_seq - start_seq
+
+        # -----------------------------
+        # 병렬 처리
+        # -----------------------------
+        start_con = time.perf_counter()
+
+        con_results = await analyze_concurrent(client, con_articles)
+
+        end_con = time.perf_counter()
+
+        con_time = end_con - start_con
+
+        # -----------------------------
+        # 결과 리포트
+        # -----------------------------
+        print("\n" + "=" * 50)
+        print("[성능 비교 결과]")
+        print(f"순차 처리 (15건): {seq_time:.2f}초")
+        print(f"병렬 처리 (15건): {con_time:.2f}초")
+        print(f"속도 개선율: {((seq_time - con_time) / seq_time * 100):.1f}%")
+        print("=" * 50 + "\n")
+
+    # 결과 합치기 (총 30개)
+    results = seq_results + con_results
+
+    return results

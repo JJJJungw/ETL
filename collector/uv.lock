@@ -188,6 +188,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "feedparser" },
     { name = "httpx" },
+    { name = "kiwipiepy" },
     { name = "lxml" },
     { name = "pandas" },
     { name = "python-dateutil" },
@@ -202,11 +203,21 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.14.3" },
     { name = "feedparser", specifier = ">=6.0.12" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "kiwipiepy", specifier = ">=0.22.2" },
     { name = "lxml", specifier = ">=6.0.2" },
     { name = "pandas", specifier = ">=3.0.1" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "sqlalchemy", specifier = ">=2.0.48" },
+]
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
 ]
 
 [[package]]
@@ -313,6 +324,35 @@ sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/0703ccc57f3a72335
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl", hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea", size = 71008, upload-time = "2025-10-12T14:55:18.883Z" },
 ]
+
+[[package]]
+name = "kiwipiepy"
+version = "0.22.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "kiwipiepy-model" },
+    { name = "numpy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/90/e1/e407471d8306e8a43fefff54e5bcd51feb77cc28cf4033be8ad0d5f6fadc/kiwipiepy-0.22.2.tar.gz", hash = "sha256:4a8a4b17b6b229a7e315af1e45727aa21a73ee529a9471161558bf05674b9658", size = 2429596, upload-time = "2025-12-15T15:13:24.214Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/35/3e/b0a3119c6585e5ca2de3c944837a05d03ddb26d7aaa06a7a5a5c761d94f6/kiwipiepy-0.22.2-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:a6309f30bddb0e71bb863c90d640f7e3fe030faa0b3f87bdf51e63621a90eada", size = 8848123, upload-time = "2025-12-15T15:18:29.926Z" },
+    { url = "https://files.pythonhosted.org/packages/de/f9/eabc35d497e80831b59d1c49d2e0eb65a83e36f194bca75f83b4b8340c50/kiwipiepy-0.22.2-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:230b00414843b9c03d542bb46122918d969aa0f1c49fee633b6e103643c5eead", size = 3516006, upload-time = "2025-12-15T15:15:43.663Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/00/dd24f2e3b8d7dfb984dab5cec4f2f2fdbf5ead1d1921c4eca14da02c4098/kiwipiepy-0.22.2-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:ed83e7d90cc11a29b49d1c9be602f84562996e2b7b6de77de65618935b1a71f5", size = 3027558, upload-time = "2025-12-15T15:19:59.277Z" },
+    { url = "https://files.pythonhosted.org/packages/89/0e/e06c6d08aa6e56cf7b4650bd07389b56c1ec1a011896d39e07e1576fd2ee/kiwipiepy-0.22.2-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:650539424681bdef0cec89c4ed40f3b1fc880e036edaf890b0fa3a36bfade38c", size = 5915096, upload-time = "2025-12-15T15:38:27.162Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/2c/87341a3391b065151b7a9cbcfd6ec34c345d1624cfb01ac1e0220e94a756/kiwipiepy-0.22.2-cp314-cp314t-win_amd64.whl", hash = "sha256:db7d641f07d4f49b062a475eeb00b4cdfb379ba77f611a947ae68f93ce425615", size = 2592179, upload-time = "2025-12-15T15:26:31.588Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/84/4d59d0538507399f973e449a1ad2b39da0cc998f16b2e986ce6daf7128fb/kiwipiepy-0.22.2-cp39-abi3-macosx_10_14_x86_64.whl", hash = "sha256:3db88b1756010ce6e192f047ec5b2ed9711c3ab3390e19d5fa590542c6cd39e6", size = 8840234, upload-time = "2025-12-15T15:27:28.742Z" },
+    { url = "https://files.pythonhosted.org/packages/19/ee/2cbb1dd9cf5bf26c5620ca325fcef27a7b20772fc3b2374fab80be4ef7b2/kiwipiepy-0.22.2-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:bc0f54282b6bb64046aa94e1f8dc66f99f67fb626a0a283dcba24981e607852e", size = 3507298, upload-time = "2025-12-15T15:14:19.877Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/84/ca2733d860b6c973b8585f419132ec557c8e3801e11b5fe6f11958be6cb7/kiwipiepy-0.22.2-cp39-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:f71dcc85f870a82c6290a5824cee2f744df2cd05ad7a5e4cbd40184f69bb284e", size = 3025751, upload-time = "2025-12-15T15:20:01.102Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/a6/71fe6cbcdc306748c23a8da54525055adab994167d18fdf19acb92816ece/kiwipiepy-0.22.2-cp39-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:628e468d55acec204b71720fc6f9a29994edbae0512e31be0a46e9efa9eb56bc", size = 5914603, upload-time = "2025-12-15T15:38:28.534Z" },
+    { url = "https://files.pythonhosted.org/packages/10/d9/be3009a2fd00b4892566f9139bb161e267c943811345524f59408ee8f373/kiwipiepy-0.22.2-cp39-abi3-win_amd64.whl", hash = "sha256:cadbbbb877e381e39d2d4efbdabc053458e0e29756ff0a2b41cc611ff0f2f1af", size = 2514919, upload-time = "2025-12-15T15:27:51.881Z" },
+]
+
+[[package]]
+name = "kiwipiepy-model"
+version = "0.22.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/a1/f6d1113784dc3669d1ac4e4be1584af206a1aa7daa952a8805213324256e/kiwipiepy_model-0.22.1.tar.gz", hash = "sha256:c2359920c9f6d66b131452c905a3c8792305f9bdee6cedbe6088d0430653fd8b", size = 79496954, upload-time = "2025-12-15T15:38:39.331Z" }
 
 [[package]]
 name = "lxml"
@@ -657,6 +697,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/95/32107c4d13be077a9cae61e9ae49966a35dc4bf442a8852dd871db31f62e/sqlalchemy-2.0.48-cp314-cp314t-win32.whl", hash = "sha256:b8438ec5594980d405251451c5b7ea9aa58dda38eb7ac35fb7e4c696712ee24f", size = 2147209, upload-time = "2026-03-02T15:52:54.274Z" },
     { url = "https://files.pythonhosted.org/packages/d2/d7/1e073da7a4bc645eb83c76067284a0374e643bc4be57f14cc6414656f92c/sqlalchemy-2.0.48-cp314-cp314t-win_amd64.whl", hash = "sha256:d854b3970067297f3a7fbd7a4683587134aa9b3877ee15aa29eea478dc68f933", size = 2182198, upload-time = "2026-03-02T15:52:55.606Z" },
     { url = "https://files.pythonhosted.org/packages/46/2c/9664130905f03db57961b8980b05cab624afd114bf2be2576628a9f22da4/sqlalchemy-2.0.48-py3-none-any.whl", hash = "sha256:a66fe406437dd65cacd96a72689a3aaaecaebbcd62d81c5ac1c0fdbeac835096", size = 1940202, upload-time = "2026-03-02T15:52:43.285Z" },
+]
+
+[[package]]
+name = "tqdm"
+version = "4.67.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/09/a9/6ba95a270c6f1fbcd8dac228323f2777d886cb206987444e4bce66338dd4/tqdm-4.67.3.tar.gz", hash = "sha256:7d825f03f89244ef73f1d4ce193cb1774a8179fd96f31d7e1dcde62092b960bb", size = 169598, upload-time = "2026-02-03T17:35:53.048Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/e1/3079a9ff9b8e11b846c6ac5c8b5bfb7ff225eee721825310c91b3b50304f/tqdm-4.67.3-py3-none-any.whl", hash = "sha256:ee1e4c0e59148062281c49d80b25b67771a127c85fc9676d3be5f243206826bf", size = 78374, upload-time = "2026-02-03T17:35:50.982Z" },
 ]
 
 [[package]]
